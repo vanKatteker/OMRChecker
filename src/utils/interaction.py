@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 
 import cv2
-import tkinter as tk
 from screeninfo import get_monitors
-from PIL import Image, ImageTk
+
 
 from src.logger import logger
 from src.utils.image import ImageUtils
@@ -91,6 +90,16 @@ class InteractionUtils:
         scrollbars allow the complete image to be inspected.
         Zooming only changes the visualization but not the coordinates.
         """
+
+        try:
+            import tkinter as tk
+            from PIL import Image, ImageTk
+        except ImportError as exc:
+            raise RuntimeError(
+                "The scrollable layout viewer requires Tkinter. "
+                "Please install the Tk package for your Python installation. "
+        ) from exc            
+
         if origin is None:
             logger.info(f"'{name}' - NoneType image to show!")
             return
@@ -306,27 +315,75 @@ class InteractionUtils:
         # Mouse wheel
         # ------------------------------------------------------------
 
+        def scroll_vertical(direction):
+            canvas.yview_scroll(
+                direction,
+                "units",
+            )
+
+        def scroll_horizontal(direction):
+            canvas.xview_scroll(
+                direction,
+                "units",
+            )
+
+        # ------------------------------------------------------------
+        # Windows / macOS
+        # ------------------------------------------------------------
+
         def on_mousewheel(event):
             """
-            Mouse wheel:
+            Windows / macOS:
                 Wheel       -> vertical scrolling
                 Shift+Wheel -> horizontal scrolling
             """
 
+            direction = -1 if event.delta > 0 else 1
+
             if event.state & 0x0001:
-                canvas.xview_scroll(
-                    int(-event.delta / 120),
-                    "units",
-                )
+                scroll_horizontal(direction)
             else:
-                canvas.yview_scroll(
-                    int(-event.delta / 120),
-                    "units",
-                )
+                scroll_vertical(direction)
 
         canvas.bind(
             "<MouseWheel>",
             on_mousewheel,
+        )
+
+        # ------------------------------------------------------------
+        # Linux / X11
+        # ------------------------------------------------------------
+
+        def on_linux_scroll_up(event):
+            """
+            Linux/X11:
+                Button 4 = mouse wheel up
+            """
+
+            if event.state & 0x0001:
+                scroll_horizontal(-1)
+            else:
+                scroll_vertical(-1)
+
+        def on_linux_scroll_down(event):
+            """
+            Linux/X11:
+                Button 5 = mouse wheel down
+            """
+
+            if event.state & 0x0001:
+                scroll_horizontal(1)
+            else:
+                scroll_vertical(1)
+
+        canvas.bind(
+            "<Button-4>",
+            on_linux_scroll_up,
+        )
+
+        canvas.bind(
+            "<Button-5>",
+            on_linux_scroll_down,
         )
 
         # ------------------------------------------------------------
